@@ -68,6 +68,7 @@ type MapCity = {
   lat: number;
   lon: number;
   region: string;
+  pollenSuitability: number;
 };
 
 type CityRiskPoint = MapCity & {
@@ -96,23 +97,94 @@ const defaultLocations: LocationOption[] = [
 ];
 
 const mapCities: MapCity[] = [
-  { id: "sapporo", name: "札幌", lat: 43.0618, lon: 141.3545, region: "北海道" },
-  { id: "sendai", name: "仙台", lat: 38.2682, lon: 140.8694, region: "東北" },
-  { id: "tokyo", name: "東京", lat: 35.6764, lon: 139.65, region: "関東" },
-  { id: "niigata", name: "新潟", lat: 37.9161, lon: 139.0364, region: "甲信越" },
-  { id: "nagoya", name: "名古屋", lat: 35.1815, lon: 136.9066, region: "中部" },
-  { id: "osaka", name: "大阪", lat: 34.6937, lon: 135.5023, region: "関西" },
-  { id: "hiroshima", name: "広島", lat: 34.3853, lon: 132.4553, region: "中国" },
-  { id: "kochi", name: "高知", lat: 33.5597, lon: 133.5311, region: "四国" },
-  { id: "fukuoka", name: "福岡", lat: 33.5902, lon: 130.4017, region: "九州" },
+  {
+    id: "sapporo",
+    name: "札幌",
+    lat: 43.0618,
+    lon: 141.3545,
+    region: "北海道",
+    pollenSuitability: 0.64,
+  },
+  {
+    id: "sendai",
+    name: "仙台",
+    lat: 38.2682,
+    lon: 140.8694,
+    region: "東北",
+    pollenSuitability: 0.95,
+  },
+  {
+    id: "tokyo",
+    name: "東京",
+    lat: 35.6764,
+    lon: 139.65,
+    region: "関東",
+    pollenSuitability: 1,
+  },
+  {
+    id: "niigata",
+    name: "新潟",
+    lat: 37.9161,
+    lon: 139.0364,
+    region: "甲信越",
+    pollenSuitability: 0.9,
+  },
+  {
+    id: "nagoya",
+    name: "名古屋",
+    lat: 35.1815,
+    lon: 136.9066,
+    region: "中部",
+    pollenSuitability: 0.93,
+  },
+  {
+    id: "osaka",
+    name: "大阪",
+    lat: 34.6937,
+    lon: 135.5023,
+    region: "関西",
+    pollenSuitability: 0.88,
+  },
+  {
+    id: "hiroshima",
+    name: "広島",
+    lat: 34.3853,
+    lon: 132.4553,
+    region: "中国",
+    pollenSuitability: 0.84,
+  },
+  {
+    id: "kochi",
+    name: "高知",
+    lat: 33.5597,
+    lon: 133.5311,
+    region: "四国",
+    pollenSuitability: 0.82,
+  },
+  {
+    id: "fukuoka",
+    name: "福岡",
+    lat: 33.5902,
+    lon: 130.4017,
+    region: "九州",
+    pollenSuitability: 0.78,
+  },
   {
     id: "kagoshima",
     name: "鹿児島",
     lat: 31.5966,
     lon: 130.5571,
     region: "南九州",
+    pollenSuitability: 0.66,
   },
-  { id: "naha", name: "那覇", lat: 26.2125, lon: 127.6811, region: "沖縄" },
+  {
+    id: "naha",
+    name: "那覇",
+    lat: 26.2125,
+    lon: 127.6811,
+    region: "沖縄",
+    pollenSuitability: 0.22,
+  },
 ];
 
 const mapGuides: GeoPoint[][] = [
@@ -369,6 +441,17 @@ function geoToPercent(lat: number, lon: number) {
   };
 }
 
+function adjustMapRiskScore(rawScore: number, suitability: number, month: number) {
+  const monthScale =
+    month >= 2 && month <= 4 ? 1 : month === 5 ? 0.78 : month >= 8 && month <= 10 ? 0.55 : 0.35;
+  const effectiveSuitability = clamp(suitability * monthScale, 0.15, 1);
+  const baseline = 14;
+
+  return Math.round(
+    clamp(rawScore * effectiveSuitability + baseline * (1 - effectiveSuitability), 0, 100),
+  );
+}
+
 export default function Home() {
   const [selectedId, setSelectedId] = useState(defaultLocations[0].id);
   const [customLocation, setCustomLocation] = useState<LocationOption | null>(
@@ -489,11 +572,17 @@ export default function Home() {
             pm10: 24,
             pm25: 13,
           });
+          const adjustedScore = adjustMapRiskScore(
+            risk.score,
+            city.pollenSuitability,
+            new Date().getMonth() + 1,
+          );
+          const level = riskLevel(adjustedScore);
 
           return {
             ...city,
-            score: risk.score,
-            level: risk.level,
+            score: adjustedScore,
+            level,
             temperature,
             humidity,
             wind,
@@ -983,7 +1072,7 @@ export default function Home() {
             </div>
 
             <p className="mt-2 text-sm text-slate-700">
-              主要都市の気象条件から推定した、全国の花粉リスク分布です。
+              気象条件に地域係数（花粉の発生しやすさ）を加味した、主要都市の推定リスク分布です。
               {mapUpdatedAt ? `（最終更新 ${mapUpdatedAt} JST）` : ""}
             </p>
 
