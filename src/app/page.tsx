@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
 type RiskLevel = "低い" | "やや高い" | "高い" | "非常に高い";
 
@@ -46,6 +46,44 @@ type DailyActionKey =
   | "shower"
   | "roomClean";
 
+type PollenTypeId = "cedar" | "cypress" | "grass" | "ragweed" | "birch";
+
+type PollenType = {
+  id: PollenTypeId;
+  name: string;
+  seasonMonths: number[];
+  peakMonths: number[];
+  description: string;
+  care: string;
+};
+
+type PollenTypeStatus = PollenType & {
+  score: number;
+  level: RiskLevel;
+};
+
+type MapCity = {
+  id: string;
+  name: string;
+  lat: number;
+  lon: number;
+  region: string;
+};
+
+type CityRiskPoint = MapCity & {
+  score: number;
+  level: RiskLevel;
+  temperature: number;
+  humidity: number;
+  wind: number;
+  precipitation: number;
+};
+
+type GeoPoint = {
+  lat: number;
+  lon: number;
+};
+
 const STORAGE_LOG_KEY = "kafun-symptom-log-v1";
 const STORAGE_ACTION_KEY = "kafun-action-check-v1";
 
@@ -55,6 +93,110 @@ const defaultLocations: LocationOption[] = [
   { id: "nagoya", name: "名古屋", lat: 35.1815, lon: 136.9066 },
   { id: "sapporo", name: "札幌", lat: 43.0618, lon: 141.3545 },
   { id: "fukuoka", name: "福岡", lat: 33.5902, lon: 130.4017 },
+];
+
+const mapCities: MapCity[] = [
+  { id: "sapporo", name: "札幌", lat: 43.0618, lon: 141.3545, region: "北海道" },
+  { id: "sendai", name: "仙台", lat: 38.2682, lon: 140.8694, region: "東北" },
+  { id: "tokyo", name: "東京", lat: 35.6764, lon: 139.65, region: "関東" },
+  { id: "niigata", name: "新潟", lat: 37.9161, lon: 139.0364, region: "甲信越" },
+  { id: "nagoya", name: "名古屋", lat: 35.1815, lon: 136.9066, region: "中部" },
+  { id: "osaka", name: "大阪", lat: 34.6937, lon: 135.5023, region: "関西" },
+  { id: "hiroshima", name: "広島", lat: 34.3853, lon: 132.4553, region: "中国" },
+  { id: "kochi", name: "高知", lat: 33.5597, lon: 133.5311, region: "四国" },
+  { id: "fukuoka", name: "福岡", lat: 33.5902, lon: 130.4017, region: "九州" },
+  {
+    id: "kagoshima",
+    name: "鹿児島",
+    lat: 31.5966,
+    lon: 130.5571,
+    region: "南九州",
+  },
+  { id: "naha", name: "那覇", lat: 26.2125, lon: 127.6811, region: "沖縄" },
+];
+
+const mapGuides: GeoPoint[][] = [
+  [
+    { lat: 31.3, lon: 130.2 },
+    { lat: 32.3, lon: 131.1 },
+    { lat: 33.0, lon: 132.0 },
+    { lat: 33.7, lon: 133.7 },
+    { lat: 34.4, lon: 134.8 },
+    { lat: 35.1, lon: 136.1 },
+    { lat: 35.7, lon: 139.2 },
+    { lat: 36.6, lon: 140.2 },
+    { lat: 38.1, lon: 141.2 },
+    { lat: 40.9, lon: 141.4 },
+  ],
+  [
+    { lat: 41.2, lon: 139.2 },
+    { lat: 43.2, lon: 141.5 },
+    { lat: 44.0, lon: 144.8 },
+    { lat: 43.0, lon: 145.5 },
+    { lat: 41.7, lon: 142.8 },
+    { lat: 41.2, lon: 139.2 },
+  ],
+  [
+    { lat: 33.9, lon: 133.2 },
+    { lat: 33.8, lon: 134.6 },
+    { lat: 33.9, lon: 132.1 },
+    { lat: 33.8, lon: 133.2 },
+  ],
+  [
+    { lat: 31.1, lon: 130.2 },
+    { lat: 32.9, lon: 129.9 },
+    { lat: 33.8, lon: 131.7 },
+    { lat: 31.1, lon: 130.2 },
+  ],
+  [
+    { lat: 24.8, lon: 127.1 },
+    { lat: 25.7, lon: 127.5 },
+    { lat: 26.2, lon: 127.8 },
+    { lat: 26.8, lon: 128.3 },
+  ],
+];
+
+const pollenCatalog: PollenType[] = [
+  {
+    id: "cedar",
+    name: "スギ",
+    seasonMonths: [2, 3, 4],
+    peakMonths: [2, 3],
+    description: "日本で最も患者数が多い代表的な花粉。早春から急増します。",
+    care: "朝の飛散ピーク前に洗濯・換気を済ませると悪化を防ぎやすいです。",
+  },
+  {
+    id: "cypress",
+    name: "ヒノキ",
+    seasonMonths: [3, 4, 5],
+    peakMonths: [4],
+    description: "スギの後に飛散が強まり、症状が長引く要因になりやすい花粉です。",
+    care: "4月以降も自己判断で薬をやめず、就寝前の鼻洗浄を継続しましょう。",
+  },
+  {
+    id: "grass",
+    name: "イネ科",
+    seasonMonths: [4, 5, 6, 7, 8],
+    peakMonths: [5, 6],
+    description: "河川敷や草地の近くで反応しやすく、初夏まで長く続きます。",
+    care: "草地に近いルートを避け、帰宅時に靴と裾の花粉を落としてください。",
+  },
+  {
+    id: "ragweed",
+    name: "ブタクサ",
+    seasonMonths: [8, 9, 10],
+    peakMonths: [9],
+    description: "秋に増える代表花粉で、朝夕の散歩で症状が出る方が多いです。",
+    care: "秋は窓開け換気の時間帯を昼に寄せると吸入量を減らしやすいです。",
+  },
+  {
+    id: "birch",
+    name: "シラカンバ",
+    seasonMonths: [4, 5, 6],
+    peakMonths: [5],
+    description: "北海道・東北で注意される花粉。地域により体感差が大きいです。",
+    care: "目のかゆみが強い日は防風メガネと人工涙液を併用してください。",
+  },
 ];
 
 const actionItems: { key: DailyActionKey; label: string }[] = [
@@ -71,6 +213,15 @@ const defaultActionState: Record<DailyActionKey, boolean> = {
   laundryInside: false,
   shower: false,
   roomClean: false,
+};
+
+const monthList = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+
+const mapBounds = {
+  latMin: 24,
+  latMax: 46,
+  lonMin: 127,
+  lonMax: 146,
 };
 
 function clamp(value: number, min: number, max: number) {
@@ -147,9 +298,75 @@ function toJstDateString(date: Date) {
   }).format(date);
 }
 
+function toJstTimeString(date: Date) {
+  return new Intl.DateTimeFormat("ja-JP", {
+    timeZone: "Asia/Tokyo",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(date);
+}
+
 function parseNumber(value: unknown, fallback = 0) {
   const num = Number(value);
   return Number.isFinite(num) ? num : fallback;
+}
+
+function monthDistance(a: number, b: number) {
+  const distance = Math.abs(a - b);
+  return Math.min(distance, 12 - distance);
+}
+
+function seasonalFactor(currentMonth: number, seasonMonths: number[]) {
+  if (seasonMonths.includes(currentMonth)) return 1;
+  if (seasonMonths.some((month) => monthDistance(month, currentMonth) === 1)) {
+    return 0.44;
+  }
+  if (seasonMonths.some((month) => monthDistance(month, currentMonth) === 2)) {
+    return 0.2;
+  }
+  return 0;
+}
+
+function estimatePollenTypeScore(
+  type: PollenType,
+  currentMonth: number,
+  weather: WeatherSnapshot | null,
+  overallRiskScore: number,
+) {
+  const season = seasonalFactor(currentMonth, type.seasonMonths);
+  const windBoost = weather ? clamp((weather.wind - 2) * 6, 0, 18) : 6;
+  const dryBoost = weather ? clamp((50 - weather.humidity) * 0.35, 0, 12) : 4;
+  const rainPenalty = weather && weather.precipitation > 0 ? 12 : 0;
+
+  const score = Math.round(
+    clamp(season * 72 + overallRiskScore * 0.22 + windBoost + dryBoost - rainPenalty, 0, 100),
+  );
+
+  return score;
+}
+
+function levelChipClass(level: RiskLevel) {
+  if (level === "非常に高い") return "bg-rose-100 text-rose-700";
+  if (level === "高い") return "bg-orange-100 text-orange-700";
+  if (level === "やや高い") return "bg-amber-100 text-amber-700";
+  return "bg-emerald-100 text-emerald-700";
+}
+
+function levelDotClass(level: RiskLevel) {
+  if (level === "非常に高い") return "bg-rose-600";
+  if (level === "高い") return "bg-orange-500";
+  if (level === "やや高い") return "bg-amber-500";
+  return "bg-emerald-500";
+}
+
+function geoToPercent(lat: number, lon: number) {
+  const x = ((lon - mapBounds.lonMin) / (mapBounds.lonMax - mapBounds.lonMin)) * 100;
+  const y = ((mapBounds.latMax - lat) / (mapBounds.latMax - mapBounds.latMin)) * 100;
+  return {
+    x: clamp(x, 0, 100),
+    y: clamp(y, 0, 100),
+  };
 }
 
 export default function Home() {
@@ -163,6 +380,12 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [geoLoading, setGeoLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [mapRisks, setMapRisks] = useState<CityRiskPoint[]>([]);
+  const [mapLoading, setMapLoading] = useState(false);
+  const [mapError, setMapError] = useState<string | null>(null);
+  const [mapUpdatedAt, setMapUpdatedAt] = useState<string | null>(null);
+  const [activeMapCityId, setActiveMapCityId] = useState<string | null>(null);
 
   const [symptomSeverity, setSymptomSeverity] = useState(4);
   const [tookMedicine, setTookMedicine] = useState(false);
@@ -199,6 +422,114 @@ export default function Home() {
     const delta = Number((latestAvg - previousAvg).toFixed(1));
     return delta;
   }, [logs]);
+
+  const pollenTypeStatus = useMemo<PollenTypeStatus[]>(() => {
+    const month = new Date().getMonth() + 1;
+    const overall = todayRisk?.score ?? 40;
+
+    return pollenCatalog
+      .map((type) => {
+        const score = estimatePollenTypeScore(type, month, weather, overall);
+        return {
+          ...type,
+          score,
+          level: riskLevel(score),
+        };
+      })
+      .sort((a, b) => b.score - a.score);
+  }, [todayRisk, weather]);
+
+  const activeMapCity = useMemo(() => {
+    if (!activeMapCityId) return null;
+    return mapRisks.find((city) => city.id === activeMapCityId) ?? null;
+  }, [mapRisks, activeMapCityId]);
+
+  const highAttentionPollen = useMemo(() => {
+    const list = pollenTypeStatus
+      .filter((item) => item.score >= 35)
+      .slice(0, 2)
+      .map((item) => item.name);
+
+    return list.length > 0 ? list.join("・") : "現時点では目立つ種類は少なめ";
+  }, [pollenTypeStatus]);
+
+  const loadMapRisk = useCallback(async () => {
+    setMapLoading(true);
+    setMapError(null);
+
+    try {
+      const settled = await Promise.allSettled(
+        mapCities.map(async (city): Promise<CityRiskPoint> => {
+          const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${city.lat}&longitude=${city.lon}&timezone=Asia%2FTokyo&current=temperature_2m,relative_humidity_2m,wind_speed_10m,precipitation`;
+          const response = await fetch(weatherUrl);
+
+          if (!response.ok) {
+            throw new Error(`failed to load ${city.name}`);
+          }
+
+          const data = (await response.json()) as {
+            current?: {
+              temperature_2m?: number;
+              relative_humidity_2m?: number;
+              wind_speed_10m?: number;
+              precipitation?: number;
+            };
+          };
+
+          const temperature = parseNumber(data.current?.temperature_2m, 12);
+          const humidity = parseNumber(data.current?.relative_humidity_2m, 50);
+          const wind = parseNumber(data.current?.wind_speed_10m, 2);
+          const precipitation = parseNumber(data.current?.precipitation, 0);
+          const risk = estimateRisk({
+            date: new Date(),
+            temperature,
+            humidity,
+            wind,
+            precipitation,
+            pm10: 24,
+            pm25: 13,
+          });
+
+          return {
+            ...city,
+            score: risk.score,
+            level: risk.level,
+            temperature,
+            humidity,
+            wind,
+            precipitation,
+          };
+        }),
+      );
+
+      const succeeded = settled
+        .filter(
+          (result): result is PromiseFulfilledResult<CityRiskPoint> =>
+            result.status === "fulfilled",
+        )
+        .map((result) => result.value)
+        .sort((a, b) => b.score - a.score);
+
+      if (succeeded.length === 0) {
+        throw new Error("map fetch failed");
+      }
+
+      setMapRisks(succeeded);
+      setMapUpdatedAt(toJstTimeString(new Date()));
+      setActiveMapCityId((prev) => {
+        if (prev && succeeded.some((city) => city.id === prev)) return prev;
+        return succeeded[0].id;
+      });
+
+      if (succeeded.length < mapCities.length) {
+        setMapError("一部地域の取得に失敗しました。表示できた地域のみ反映しています。");
+      }
+    } catch {
+      setMapError("花粉マップの取得に失敗しました。少し時間をおいて再試行してください。");
+    } finally {
+      setMapLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     try {
@@ -324,6 +655,10 @@ export default function Home() {
 
     void loadRisk();
   }, [selectedLocation]);
+
+  useEffect(() => {
+    void loadMapRisk();
+  }, [loadMapRisk]);
 
   function toggleAction(key: DailyActionKey) {
     setActions((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -498,9 +833,7 @@ export default function Home() {
                 <div
                   className="h-full w-full rounded-full"
                   style={{
-                    background: `conic-gradient(#0f766e ${
-                      (todayRisk?.score ?? 0) * 3.6
-                    }deg, #d5dde5 0deg)`,
+                    background: `conic-gradient(#0f766e ${(todayRisk?.score ?? 0) * 3.6}deg, #d5dde5 0deg)`,
                   }}
                 />
                 <div className="absolute inset-[13px] grid place-items-center rounded-full bg-white">
@@ -545,7 +878,9 @@ export default function Home() {
                   <p className="mt-2 text-2xl font-black text-slate-900">
                     {day.score}
                   </p>
-                  <p className="mt-1 text-sm font-semibold text-teal-700">
+                  <p
+                    className={`mt-1 inline-flex rounded-full px-2 py-1 text-xs font-semibold ${levelChipClass(day.level)}`}
+                  >
                     {day.level}
                   </p>
                 </div>
@@ -574,6 +909,183 @@ export default function Home() {
                   />
                   {item.label}
                 </label>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="grid gap-6 lg:grid-cols-[1.1fr_1.5fr]">
+          <div className="glass-card p-6">
+            <h2 className="font-heading text-2xl font-bold text-slate-900">
+              花粉の種類
+            </h2>
+            <p className="mt-2 text-sm text-slate-700">
+              いま注意したい種類: <strong>{highAttentionPollen}</strong>
+            </p>
+            <div className="mt-4 space-y-3">
+              {pollenTypeStatus.map((type) => (
+                <article
+                  key={type.id}
+                  className="rounded-xl border border-slate-200 bg-white/75 p-4"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-lg font-bold text-slate-900">{type.name}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-black text-slate-900">{type.score}</p>
+                      <span
+                        className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${levelChipClass(type.level)}`}
+                      >
+                        {type.level}
+                      </span>
+                    </div>
+                  </div>
+                  <p className="mt-2 text-xs leading-6 text-slate-600">{type.description}</p>
+                  <p className="mt-2 text-xs leading-6 text-teal-700">対策: {type.care}</p>
+                  <div className="mt-3 grid grid-cols-12 gap-1">
+                    {monthList.map((month) => {
+                      const inSeason = type.seasonMonths.includes(month);
+                      const isPeak = type.peakMonths.includes(month);
+                      return (
+                        <div
+                          key={`${type.id}-${month}`}
+                          title={`${month}月`}
+                          className={`h-2 rounded-full ${
+                            isPeak
+                              ? "bg-teal-600"
+                              : inSeason
+                                ? "bg-teal-300"
+                                : "bg-slate-200"
+                          }`}
+                        />
+                      );
+                    })}
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
+
+          <div className="glass-card p-6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="font-heading text-2xl font-bold text-slate-900">
+                花粉マップ（主要都市）
+              </h2>
+              <button
+                type="button"
+                onClick={() => {
+                  void loadMapRisk();
+                }}
+                className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-500"
+                disabled={mapLoading}
+              >
+                {mapLoading ? "更新中..." : "マップ更新"}
+              </button>
+            </div>
+
+            <p className="mt-2 text-sm text-slate-700">
+              主要都市の気象条件から推定した、全国の花粉リスク分布です。
+              {mapUpdatedAt ? `（最終更新 ${mapUpdatedAt} JST）` : ""}
+            </p>
+
+            <div className="mt-4 rounded-2xl border border-slate-200 bg-white/65 p-3">
+              <div className="relative h-[420px] overflow-hidden rounded-xl bg-gradient-to-b from-sky-100 via-cyan-50 to-emerald-50">
+                <svg
+                  className="absolute inset-0 h-full w-full"
+                  viewBox="0 0 100 100"
+                  preserveAspectRatio="none"
+                  aria-hidden
+                >
+                  {mapGuides.map((line, index) => {
+                    const points = line
+                      .map((point) => {
+                        const pos = geoToPercent(point.lat, point.lon);
+                        return `${pos.x},${pos.y}`;
+                      })
+                      .join(" ");
+
+                    return (
+                      <polyline
+                        key={`guide-${index}`}
+                        points={points}
+                        fill="none"
+                        stroke="rgba(15, 23, 42, 0.28)"
+                        strokeWidth={index === 0 ? 1.1 : 0.8}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    );
+                  })}
+                </svg>
+
+                {mapRisks.map((city) => {
+                  const pos = geoToPercent(city.lat, city.lon);
+                  const active = city.id === activeMapCityId;
+
+                  return (
+                    <button
+                      key={city.id}
+                      type="button"
+                      className="absolute -translate-x-1/2 -translate-y-1/2 text-left"
+                      style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
+                      onClick={() => setActiveMapCityId(city.id)}
+                      title={`${city.name}: ${city.score}`}
+                    >
+                      <span
+                        className={`block h-3.5 w-3.5 rounded-full ${levelDotClass(city.level)} ${
+                          active ? "ring-4 ring-slate-300" : "ring-2 ring-white"
+                        }`}
+                      />
+                      <span className="mt-1 block rounded bg-white/90 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700 shadow-sm">
+                        {city.name}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {mapError ? <p className="mt-3 text-sm text-rose-700">{mapError}</p> : null}
+
+            {activeMapCity ? (
+              <div className="mt-4 rounded-xl border border-slate-200 bg-white/75 p-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-lg font-bold text-slate-900">
+                    {activeMapCity.name}（{activeMapCity.region}）
+                  </p>
+                  <span
+                    className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${levelChipClass(activeMapCity.level)}`}
+                  >
+                    {activeMapCity.level}
+                  </span>
+                  <p className="text-sm font-black text-slate-900">
+                    スコア {activeMapCity.score}
+                  </p>
+                </div>
+                <p className="mt-2 text-sm text-slate-700">
+                  気温 {activeMapCity.temperature.toFixed(1)}°C / 湿度 {Math.round(activeMapCity.humidity)}% / 風速 {activeMapCity.wind.toFixed(1)} m/s / 降水 {activeMapCity.precipitation.toFixed(1)} mm
+                </p>
+              </div>
+            ) : null}
+
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+              {mapRisks.map((city) => (
+                <button
+                  key={`list-${city.id}`}
+                  type="button"
+                  onClick={() => setActiveMapCityId(city.id)}
+                  className={`flex items-center justify-between rounded-xl border px-3 py-2 text-left text-sm transition ${
+                    city.id === activeMapCityId
+                      ? "border-slate-400 bg-slate-100"
+                      : "border-slate-200 bg-white/75 hover:border-slate-300"
+                  }`}
+                >
+                  <span className="font-semibold text-slate-800">{city.name}</span>
+                  <span
+                    className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-semibold ${levelChipClass(city.level)}`}
+                  >
+                    {city.score}
+                  </span>
+                </button>
               ))}
             </div>
           </div>
@@ -655,8 +1167,8 @@ export default function Home() {
                   {trend === null
                     ? "--"
                     : trend > 0
-                    ? `+${trend}（悪化傾向）`
-                    : `${trend}（改善傾向）`}
+                      ? `+${trend}（悪化傾向）`
+                      : `${trend}（改善傾向）`}
                 </strong>
               </p>
             </div>
