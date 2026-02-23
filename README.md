@@ -1,36 +1,67 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 花粉コンディション・ナビ
 
-## Getting Started
+花粉症の人向けに、当日の花粉リスク推定とセルフケア管理をまとめた Web アプリです。
 
-First, run the development server:
+## 主な機能
+
+- 地域選択 / 現在地取得によるリスク表示
+- 気象データ + PM 情報を使った花粉リスク推定（0-100）
+- 3日先までの簡易リスク予測
+- 症状ログ（つらさ / 服薬 / メモ）の保存（ブラウザの localStorage）
+- 毎日の対策チェックリスト
+
+## 技術スタック
+
+- Next.js (App Router)
+- TypeScript
+- Tailwind CSS
+- Open-Meteo API（天気）
+- Open-Meteo Air Quality API（PM2.5 / PM10）
+
+## ローカル開発
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+ブラウザで `http://localhost:3000` を開いて確認してください。
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 品質確認
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run lint
+npm run build
+```
 
-## Learn More
+## GitHub への push
 
-To learn more about Next.js, take a look at the following resources:
+以下は CLI 例です（`gh` ログイン済み前提）。
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+git add .
+git commit -m "feat: build pollen-care dashboard"
+gh repo create <your-repo-name> --public --source=. --remote=origin --push
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+既存の GitHub リポジトリに接続する場合:
 
-## Deploy on Vercel
+```bash
+git remote add origin git@github.com:<user>/<repo>.git
+git push -u origin main
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Vercel デプロイ
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+npm i -g vercel
+vercel
+vercel --prod
+```
+
+または `npx vercel --prod` でもデプロイできます。
+
+## 注意
+
+- 花粉リスクは一般的な傾向を使った推定値です。医療的な診断には使わないでください。
+- 症状が強い場合や長引く場合は医療機関に相談してください。
