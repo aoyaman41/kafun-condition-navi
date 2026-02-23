@@ -536,6 +536,24 @@ export default function Home() {
     return list.length > 0 ? list.join("・") : "現時点では目立つ種類は少なめ";
   }, [pollenTypeStatus]);
 
+  const todayLabel = useMemo(() => {
+    return new Intl.DateTimeFormat("ja-JP", {
+      month: "long",
+      day: "numeric",
+      weekday: "short",
+    }).format(new Date());
+  }, []);
+
+  const mapAverageScore = useMemo(() => {
+    if (mapRisks.length === 0) return null;
+    const total = mapRisks.reduce((sum, city) => sum + city.score, 0);
+    return Math.round(total / mapRisks.length);
+  }, [mapRisks]);
+
+  const mapHighestCity = useMemo(() => {
+    return mapRisks.length > 0 ? mapRisks[0] : null;
+  }, [mapRisks]);
+
   const loadMapRisk = useCallback(async () => {
     setMapLoading(true);
     setMapError(null);
@@ -785,36 +803,88 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen px-4 py-8 sm:px-6">
-      <main className="mx-auto flex w-full max-w-6xl flex-col gap-6">
-        <section className="glass-card p-6 sm:p-8">
-          <p className="mb-3 text-sm font-semibold tracking-[0.18em] text-teal-700">
-            POLLEN CARE DASHBOARD
-          </p>
-          <h1 className="font-heading text-3xl font-extrabold tracking-tight text-slate-900 sm:text-5xl">
-            花粉コンディション・ナビ
-          </h1>
-          <p className="mt-4 max-w-3xl text-sm text-slate-700 sm:text-base">
-            現在地の気象情報と大気情報から、花粉の飛散リスクを推定します。あわせて症状と対策の記録を残し、悪化しやすい日を先回りで管理できます。
-          </p>
-          <p className="mt-3 text-xs text-slate-500">
-            ※ 本アプリのリスクは一般的な傾向に基づく参考値です。診断や治療判断は医療機関にご相談ください。
+    <div className="app-shell px-4 py-8 sm:px-6 lg:px-8">
+      <main className="mx-auto flex w-full max-w-7xl flex-col gap-6">
+        <section
+          className="hero-card reveal rounded-[2rem] p-6 sm:p-8 lg:p-10"
+          style={{ animationDelay: "20ms" }}
+        >
+          <div className="grid gap-7 lg:grid-cols-[1.5fr_1fr]">
+            <div>
+              <p className="kicker">SEASONAL RESPIRATORY CARE</p>
+              <h1 className="font-heading mt-3 text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl">
+                花粉コンディション・ナビ
+              </h1>
+              <p className="mt-5 max-w-3xl text-sm leading-7 text-slate-700 sm:text-base">
+                天気・大気データから当日の花粉リスクを推定し、予防行動と症状ログを一つの画面で管理します。急に悪化しやすい日を先回りで把握できる、花粉症向けの実践ダッシュボードです。
+              </p>
+              <div className="mt-6 flex flex-wrap gap-2">
+                <span className="info-pill bg-white/95 text-slate-700">{todayLabel}</span>
+                <span className="info-pill bg-teal-100/90 text-teal-700">
+                  注目花粉: {highAttentionPollen}
+                </span>
+                <span className="info-pill bg-cyan-100/90 text-cyan-700">
+                  全国マップ平均: {mapAverageScore ?? "--"}
+                </span>
+              </div>
+            </div>
+
+            <div className="rounded-3xl border border-slate-200/70 bg-white/80 p-5 shadow-[0_15px_34px_rgba(15,23,42,0.08)]">
+              <p className="text-xs font-semibold tracking-[0.14em] text-slate-500">
+                TODAY SNAPSHOT
+              </p>
+              <div className="mt-4 flex items-center gap-4">
+                <div className="relative h-24 w-24 rounded-full bg-slate-200 p-2">
+                  <div
+                    className="h-full w-full rounded-full"
+                    style={{
+                      background: `conic-gradient(#0f766e ${(todayRisk?.score ?? 0) * 3.6}deg, #dce4ea 0deg)`,
+                    }}
+                  />
+                  <div className="absolute inset-[12px] grid place-items-center rounded-full bg-white">
+                    <span className="text-xl font-black text-slate-900">
+                      {todayRisk?.score ?? "--"}
+                    </span>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-slate-500">現在の判定</p>
+                  <p className="font-heading mt-1 text-3xl font-extrabold text-slate-900">
+                    {todayRisk?.level ?? "計算中"}
+                  </p>
+                  {todayRisk ? (
+                    <span
+                      className={`mt-2 inline-flex rounded-full px-2 py-1 text-xs font-semibold ${levelChipClass(todayRisk.level)}`}
+                    >
+                      スコア {todayRisk.score}
+                    </span>
+                  ) : null}
+                </div>
+              </div>
+              <p className="mt-4 text-sm leading-7 text-slate-700">{currentTip()}</p>
+            </div>
+          </div>
+          <p className="mt-5 text-xs text-slate-500">
+            ※ 参考指標です。治療や服薬判断は必ず医療機関の指示に従ってください。
           </p>
         </section>
 
         <section className="grid gap-6 lg:grid-cols-[1.55fr_1fr]">
-          <div className="glass-card p-6">
+          <div
+            className="panel-card reveal rounded-[1.65rem] p-6"
+            style={{ animationDelay: "80ms" }}
+          >
             <div className="flex flex-wrap items-end gap-3">
               <div className="min-w-[220px] flex-1">
                 <label
                   htmlFor="location"
                   className="mb-2 block text-xs font-semibold tracking-[0.13em] text-slate-600"
                 >
-                  地域
+                  観測地域
                 </label>
                 <select
                   id="location"
-                  className="w-full rounded-xl border border-slate-300 bg-white/80 px-4 py-3 text-slate-900 outline-none transition focus:border-teal-500"
+                  className="soft-field w-full rounded-xl px-4 py-3 text-slate-900 outline-none"
                   value={selectedId}
                   onChange={(event) => setSelectedId(event.target.value)}
                 >
@@ -827,14 +897,14 @@ export default function Home() {
               </div>
               <button
                 type="button"
-                className="rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-700"
+                className="action-btn action-btn-dark"
                 onClick={() => setSelectedId(selectedLocation.id)}
               >
                 再取得
               </button>
               <button
                 type="button"
-                className="rounded-xl bg-teal-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-teal-500 disabled:cursor-not-allowed disabled:bg-teal-400"
+                className="action-btn action-btn-accent"
                 onClick={() => {
                   if (!navigator.geolocation) {
                     setError("このブラウザは位置情報に対応していません。");
@@ -873,47 +943,50 @@ export default function Home() {
 
             {error ? <p className="mt-4 text-sm text-rose-700">{error}</p> : null}
 
-            <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              <div className="rounded-2xl border border-slate-200 bg-white/70 p-4">
-                <p className="text-xs font-semibold text-slate-500">気温</p>
-                <p className="mt-1 text-2xl font-bold text-slate-900">
+            <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="metric-card">
+                <p className="metric-label">気温</p>
+                <p className="metric-value">
                   {weather ? `${weather.temperature.toFixed(1)}°C` : "--"}
                 </p>
               </div>
-              <div className="rounded-2xl border border-slate-200 bg-white/70 p-4">
-                <p className="text-xs font-semibold text-slate-500">湿度</p>
-                <p className="mt-1 text-2xl font-bold text-slate-900">
+              <div className="metric-card">
+                <p className="metric-label">湿度</p>
+                <p className="metric-value">
                   {weather ? `${Math.round(weather.humidity)}%` : "--"}
                 </p>
               </div>
-              <div className="rounded-2xl border border-slate-200 bg-white/70 p-4">
-                <p className="text-xs font-semibold text-slate-500">風速</p>
-                <p className="mt-1 text-2xl font-bold text-slate-900">
+              <div className="metric-card">
+                <p className="metric-label">風速</p>
+                <p className="metric-value">
                   {weather ? `${weather.wind.toFixed(1)} m/s` : "--"}
                 </p>
               </div>
-              <div className="rounded-2xl border border-slate-200 bg-white/70 p-4">
-                <p className="text-xs font-semibold text-slate-500">PM2.5</p>
-                <p className="mt-1 text-2xl font-bold text-slate-900">
+              <div className="metric-card">
+                <p className="metric-label">PM2.5</p>
+                <p className="metric-value">
                   {weather ? `${Math.round(weather.pm25)} µg/m³` : "--"}
                 </p>
               </div>
-              <div className="rounded-2xl border border-slate-200 bg-white/70 p-4">
-                <p className="text-xs font-semibold text-slate-500">PM10</p>
-                <p className="mt-1 text-2xl font-bold text-slate-900">
+              <div className="metric-card">
+                <p className="metric-label">PM10</p>
+                <p className="metric-value">
                   {weather ? `${Math.round(weather.pm10)} µg/m³` : "--"}
                 </p>
               </div>
-              <div className="rounded-2xl border border-slate-200 bg-white/70 p-4">
-                <p className="text-xs font-semibold text-slate-500">降水量</p>
-                <p className="mt-1 text-2xl font-bold text-slate-900">
+              <div className="metric-card">
+                <p className="metric-label">降水量</p>
+                <p className="metric-value">
                   {weather ? `${weather.precipitation.toFixed(1)} mm` : "--"}
                 </p>
               </div>
             </div>
           </div>
 
-          <aside className="glass-card p-6">
+          <aside
+            className="panel-card reveal rounded-[1.65rem] p-6"
+            style={{ animationDelay: "120ms" }}
+          >
             <p className="text-xs font-semibold tracking-[0.13em] text-slate-600">
               今日の花粉リスク
             </p>
@@ -951,15 +1024,21 @@ export default function Home() {
         </section>
 
         <section className="grid gap-6 lg:grid-cols-2">
-          <div className="glass-card p-6">
+          <div
+            className="panel-card reveal rounded-[1.65rem] p-6"
+            style={{ animationDelay: "160ms" }}
+          >
             <h2 className="font-heading text-2xl font-bold text-slate-900">
               3日先までのリスク予測
             </h2>
+            <p className="mt-2 text-sm text-slate-600">
+              天気変化をもとに、近い将来の悪化タイミングを確認できます。
+            </p>
             <div className="mt-4 grid gap-3 sm:grid-cols-3">
               {forecast.map((day) => (
                 <div
                   key={day.date}
-                  className="rounded-2xl border border-slate-200 bg-white/75 p-4"
+                  className="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-[0_10px_25px_rgba(15,23,42,0.05)]"
                 >
                   <p className="text-xs font-semibold text-slate-500">
                     {toDayLabel(day.date)}
@@ -977,10 +1056,19 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="glass-card p-6">
+          <div
+            className="panel-card reveal rounded-[1.65rem] p-6"
+            style={{ animationDelay: "190ms" }}
+          >
             <h2 className="font-heading text-2xl font-bold text-slate-900">
               今日の予防アクション
             </h2>
+            <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-slate-200">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-teal-500 to-cyan-500 transition-[width] duration-500"
+                style={{ width: `${completionRate}%` }}
+              />
+            </div>
             <p className="mt-2 text-sm text-slate-700">
               実施率 <strong>{completionRate}%</strong>
             </p>
@@ -988,7 +1076,7 @@ export default function Home() {
               {actionItems.map((item) => (
                 <label
                   key={item.key}
-                  className="flex cursor-pointer items-center gap-3 rounded-xl border border-slate-200 bg-white/70 px-3 py-2 text-sm text-slate-800"
+                  className="flex cursor-pointer items-center gap-3 rounded-xl border border-slate-200 bg-white/80 px-3 py-2 text-sm text-slate-800 transition hover:border-teal-300"
                 >
                   <input
                     type="checkbox"
@@ -1004,7 +1092,10 @@ export default function Home() {
         </section>
 
         <section className="grid gap-6 lg:grid-cols-[1.1fr_1.5fr]">
-          <div className="glass-card p-6">
+          <div
+            className="panel-card reveal rounded-[1.65rem] p-6"
+            style={{ animationDelay: "230ms" }}
+          >
             <h2 className="font-heading text-2xl font-bold text-slate-900">
               花粉の種類
             </h2>
@@ -1015,7 +1106,7 @@ export default function Home() {
               {pollenTypeStatus.map((type) => (
                 <article
                   key={type.id}
-                  className="rounded-xl border border-slate-200 bg-white/75 p-4"
+                  className="rounded-xl border border-slate-200 bg-white/80 p-4 shadow-[0_10px_25px_rgba(15,23,42,0.04)]"
                 >
                   <div className="flex items-center justify-between gap-3">
                     <p className="text-lg font-bold text-slate-900">{type.name}</p>
@@ -1054,30 +1145,53 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="glass-card p-6">
+          <div
+            className="panel-card reveal rounded-[1.65rem] p-6"
+            style={{ animationDelay: "270ms" }}
+          >
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="font-heading text-2xl font-bold text-slate-900">
-                花粉マップ（主要都市）
-              </h2>
+              <div>
+                <h2 className="font-heading text-2xl font-bold text-slate-900">
+                  花粉マップ（主要都市）
+                </h2>
+                <p className="mt-1 text-sm text-slate-600">
+                  地域係数を加味した推定リスク分布
+                  {mapUpdatedAt ? `・最終更新 ${mapUpdatedAt} JST` : ""}
+                </p>
+              </div>
               <button
                 type="button"
                 onClick={() => {
                   void loadMapRisk();
                 }}
-                className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-500"
+                className="action-btn action-btn-dark"
                 disabled={mapLoading}
               >
                 {mapLoading ? "更新中..." : "マップ更新"}
               </button>
             </div>
 
-            <p className="mt-2 text-sm text-slate-700">
-              気象条件に地域係数（花粉の発生しやすさ）を加味した、主要都市の推定リスク分布です。
-              {mapUpdatedAt ? `（最終更新 ${mapUpdatedAt} JST）` : ""}
-            </p>
+            <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold">
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-1 text-emerald-700">
+                <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                低い
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-1 text-amber-700">
+                <span className="h-2 w-2 rounded-full bg-amber-500" />
+                やや高い
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-orange-100 px-2 py-1 text-orange-700">
+                <span className="h-2 w-2 rounded-full bg-orange-500" />
+                高い
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-1 text-rose-700">
+                <span className="h-2 w-2 rounded-full bg-rose-500" />
+                非常に高い
+              </span>
+            </div>
 
             <div className="mt-4 rounded-2xl border border-slate-200 bg-white/65 p-3">
-              <div className="relative h-[420px] overflow-hidden rounded-xl bg-gradient-to-b from-sky-100 via-cyan-50 to-emerald-50">
+              <div className="relative h-[420px] overflow-hidden rounded-xl bg-[radial-gradient(circle_at_22%_20%,rgba(103,232,249,0.35),transparent_38%),linear-gradient(180deg,#dbeafe_0%,#cffafe_53%,#d1fae5_100%)]">
                 <svg
                   className="absolute inset-0 h-full w-full"
                   viewBox="0 0 100 100"
@@ -1097,8 +1211,8 @@ export default function Home() {
                         key={`guide-${index}`}
                         points={points}
                         fill="none"
-                        stroke="rgba(15, 23, 42, 0.28)"
-                        strokeWidth={index === 0 ? 1.1 : 0.8}
+                        stroke="rgba(15, 23, 42, 0.3)"
+                        strokeWidth={index === 0 ? 1.2 : 0.82}
                         strokeLinecap="round"
                         strokeLinejoin="round"
                       />
@@ -1120,9 +1234,7 @@ export default function Home() {
                       title={`${city.name}: ${city.score}`}
                     >
                       <span
-                        className={`block h-3.5 w-3.5 rounded-full ${levelDotClass(city.level)} ${
-                          active ? "ring-4 ring-slate-300" : "ring-2 ring-white"
-                        }`}
+                        className={`block h-3.5 w-3.5 rounded-full ${levelDotClass(city.level)} transition ${active ? "ring-4 ring-slate-300" : "ring-2 ring-white"}`}
                       />
                       <span className="mt-1 block rounded bg-white/90 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700 shadow-sm">
                         {city.name}
@@ -1135,26 +1247,39 @@ export default function Home() {
 
             {mapError ? <p className="mt-3 text-sm text-rose-700">{mapError}</p> : null}
 
-            {activeMapCity ? (
-              <div className="mt-4 rounded-xl border border-slate-200 bg-white/75 p-4">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-lg font-bold text-slate-900">
-                    {activeMapCity.name}（{activeMapCity.region}）
-                  </p>
-                  <span
-                    className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${levelChipClass(activeMapCity.level)}`}
-                  >
-                    {activeMapCity.level}
-                  </span>
-                  <p className="text-sm font-black text-slate-900">
-                    スコア {activeMapCity.score}
-                  </p>
-                </div>
-                <p className="mt-2 text-sm text-slate-700">
-                  気温 {activeMapCity.temperature.toFixed(1)}°C / 湿度 {Math.round(activeMapCity.humidity)}% / 風速 {activeMapCity.wind.toFixed(1)} m/s / 降水 {activeMapCity.precipitation.toFixed(1)} mm
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <div className="rounded-xl border border-slate-200 bg-white/80 p-4">
+                <p className="text-xs font-semibold tracking-[0.12em] text-slate-500">
+                  最高リスク都市
+                </p>
+                <p className="mt-1 text-xl font-black text-slate-900">
+                  {mapHighestCity ? mapHighestCity.name : "--"}
+                </p>
+                <p className="mt-1 text-sm text-slate-600">
+                  {mapHighestCity ? `スコア ${mapHighestCity.score}` : "データ取得中"}
                 </p>
               </div>
-            ) : null}
+              {activeMapCity ? (
+                <div className="rounded-xl border border-slate-200 bg-white/80 p-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-lg font-bold text-slate-900">
+                      {activeMapCity.name}（{activeMapCity.region}）
+                    </p>
+                    <span
+                      className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${levelChipClass(activeMapCity.level)}`}
+                    >
+                      {activeMapCity.level}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-sm text-slate-700">
+                    気温 {activeMapCity.temperature.toFixed(1)}°C / 湿度{" "}
+                    {Math.round(activeMapCity.humidity)}% / 風速{" "}
+                    {activeMapCity.wind.toFixed(1)} m/s / 降水{" "}
+                    {activeMapCity.precipitation.toFixed(1)} mm
+                  </p>
+                </div>
+              ) : null}
+            </div>
 
             <div className="mt-4 grid gap-2 sm:grid-cols-2">
               {mapRisks.map((city) => (
@@ -1164,7 +1289,7 @@ export default function Home() {
                   onClick={() => setActiveMapCityId(city.id)}
                   className={`flex items-center justify-between rounded-xl border px-3 py-2 text-left text-sm transition ${
                     city.id === activeMapCityId
-                      ? "border-slate-400 bg-slate-100"
+                      ? "border-cyan-300 bg-cyan-50"
                       : "border-slate-200 bg-white/75 hover:border-slate-300"
                   }`}
                 >
@@ -1181,10 +1306,16 @@ export default function Home() {
         </section>
 
         <section className="grid gap-6 lg:grid-cols-2">
-          <div className="glass-card p-6">
+          <div
+            className="panel-card reveal rounded-[1.65rem] p-6"
+            style={{ animationDelay: "310ms" }}
+          >
             <h2 className="font-heading text-2xl font-bold text-slate-900">
               症状ログ
             </h2>
+            <p className="mt-2 text-sm text-slate-600">
+              1日1回の記録で、症状変動と対策の効き方を見える化できます。
+            </p>
             <form className="mt-4 space-y-4" onSubmit={submitLog}>
               <div>
                 <label className="mb-2 block text-xs font-semibold tracking-[0.12em] text-slate-600">
@@ -1206,7 +1337,7 @@ export default function Home() {
                 </p>
               </div>
 
-              <label className="flex items-center gap-3 text-sm text-slate-700">
+              <label className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white/75 px-3 py-2 text-sm text-slate-700">
                 <input
                   type="checkbox"
                   checked={tookMedicine}
@@ -1228,24 +1359,24 @@ export default function Home() {
                   value={memo}
                   onChange={(event) => setMemo(event.target.value)}
                   placeholder="外出時間や症状の特徴など"
-                  className="min-h-[88px] w-full rounded-xl border border-slate-300 bg-white/80 px-3 py-2 text-sm text-slate-900 outline-none focus:border-teal-500"
+                  className="soft-field min-h-[98px] w-full rounded-xl px-3 py-2 text-sm text-slate-900 outline-none"
                 />
               </div>
 
-              <button
-                type="submit"
-                className="rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-700"
-              >
+              <button type="submit" className="action-btn action-btn-dark">
                 今日のログを保存
               </button>
             </form>
           </div>
 
-          <div className="glass-card p-6">
+          <div
+            className="panel-card reveal rounded-[1.65rem] p-6"
+            style={{ animationDelay: "350ms" }}
+          >
             <h2 className="font-heading text-2xl font-bold text-slate-900">
               直近の傾向
             </h2>
-            <div className="mt-3 rounded-xl border border-slate-200 bg-white/70 p-4 text-sm text-slate-700">
+            <div className="mt-3 rounded-xl border border-slate-200 bg-white/80 p-4 text-sm text-slate-700">
               <p>
                 7日平均:{" "}
                 <strong>{weeklyAverage !== null ? `${weeklyAverage}` : "--"}</strong>
@@ -1264,14 +1395,14 @@ export default function Home() {
 
             <div className="mt-4 space-y-2">
               {logs.length === 0 ? (
-                <p className="text-sm text-slate-500">
+                <p className="rounded-xl border border-slate-200 bg-white/75 px-3 py-4 text-sm text-slate-500">
                   ログがまだありません。今日の状態を記録してみてください。
                 </p>
               ) : (
                 logs.slice(0, 7).map((log) => (
                   <article
                     key={log.date}
-                    className="rounded-xl border border-slate-200 bg-white/75 p-3"
+                    className="rounded-xl border border-slate-200 bg-white/80 p-3"
                   >
                     <p className="text-xs font-semibold text-slate-500">{log.date}</p>
                     <p className="mt-1 text-sm text-slate-800">
